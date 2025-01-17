@@ -12,7 +12,12 @@ import {
   TsconfigRaw,
 } from "esbuild"
 import { loadTsConfig } from "load-tsconfig"
-import { dynamicImport, getRandomId, guessFormat } from "./utils"
+import {
+  dynamicImport,
+  getPkgDependencies,
+  getRandomId,
+  guessFormat,
+} from "./utils"
 
 const DIRNAME_VAR_NAME = "__injected_dirname__"
 const FILENAME_VAR_NAME = "__injected_filename__"
@@ -133,6 +138,14 @@ export const tsconfigPathsToRegExp = (paths: Record<string, any>) => {
   return Object.keys(paths || {}).map((key) => {
     return new RegExp(`^${key.replace(/\*/, ".*")}$`)
   })
+}
+
+export const filterWorkspaceDependencyPaths = (
+  pkgDependencies: Record<string, any>,
+) => {
+  return Object.keys(pkgDependencies).filter((dep) =>
+    pkgDependencies[dep].startsWith("workspace:"),
+  )
 }
 
 export const match = (id: string, patterns?: (string | RegExp)[]) => {
@@ -256,6 +269,9 @@ export function bundleRequire<T = any>(
       tsconfig?.data.compilerOptions?.paths || {},
     )
 
+    const pkgDeps = getPkgDependencies()
+    const workspaceDepPaths = filterWorkspaceDependencyPaths(pkgDeps)
+
     const extractResult = async (result: BuildResult) => {
       if (!result.outputFiles) {
         throw new Error(`[bundle-require] no output files`)
@@ -311,7 +327,11 @@ export function bundleRequire<T = any>(
         ...(options.esbuildOptions?.plugins || []),
         externalPlugin({
           external: options.external,
-          notExternal: [...(options.notExternal || []), ...resolvePaths],
+          notExternal: [
+            ...(options.notExternal || []),
+            ...resolvePaths,
+            ...workspaceDepPaths,
+          ],
           // When `filepath` is in node_modules, this is default to false
           externalNodeModules:
             options.externalNodeModules ??

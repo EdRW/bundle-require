@@ -3,13 +3,14 @@ import path from "path"
 import { createRequire } from "module"
 import { RequireFunction } from "."
 
-const getPkgType = (): string | undefined => {
+const getPkg = (): Record<string, any> | undefined => {
   try {
-    const pkg = JSON.parse(
-      fs.readFileSync(path.resolve("package.json"), "utf-8"),
-    )
-    return pkg.type
+    return JSON.parse(fs.readFileSync(path.resolve("package.json"), "utf-8"))
   } catch (error) {}
+}
+
+const getPkgType = (): string | undefined => {
+  return getPkg()?.type
 }
 
 export function guessFormat(inputFile: string): "esm" | "cjs" {
@@ -25,6 +26,16 @@ export function guessFormat(inputFile: string): "esm" | "cjs" {
     return "esm"
   }
   return "cjs"
+}
+
+export const getPkgDependencies = (): Record<string, string> => {
+  const pkg = getPkg()
+  return {
+    ...pkg?.dependencies,
+    ...pkg?.devDependencies,
+    ...pkg?.peerDependencies,
+    ...pkg?.optionalDependencies,
+  }
 }
 
 // Injected by TSUP
